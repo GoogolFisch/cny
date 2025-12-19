@@ -36,6 +36,8 @@ typedef enum InterpTocken{
 	INTE_DEF,
 	INTE_FOR,
 	INTE_LOOP,
+	INTE_NIL,
+	INTE_RET,
 
 	INTEV_END, //
 }InterpTocken;
