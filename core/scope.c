@@ -37,6 +37,89 @@ ScopeString *scopeMakeString(){
 	return out;
 }
 
+// copy stuff
+ScopeString *scopeCopyString(ScopeString *str){
+	if(arr == NULL)return NULL;
+	ScopeString *out = malloc(sizeof(ScopeString));
+	out->string = malloc(sizeof(char) * str->capacity);
+	for(int i = 0;i < str->length;i++){
+		out->string[i] = str->string[i];
+	}
+	out->length = str->length;
+	str->capacity = str->capacity;
+	out->count = 1;
+	return out;
+}
+ScopeArray *scopeCopyArray(ScopeArray *arr){
+	if(arr == NULL)return NULL;
+	ScopeArray *out = malloc(sizeof(ScopeArray));
+	ScopeArray *current = out;
+	ScopeArray *cpFrom = arr;
+	while(true){
+		current->count = 1;
+		current->typ = cpFrom->typ;
+		current->length = cpFrom->length;
+		for(int i = 0;i < cpFrom->length;i++){
+			current->content[i].value = cpFrom->content[i].value;
+		}
+		cpFrom = cpFrom->next;
+		if(cpFrom == NULL){
+			current->next = NULL;
+			continue;
+		}
+		current->next = malloc(sizeof(ScopeArray));
+		current = current->next;
+	}
+	return out;
+}
+ScopeAnyArray *scopeCopyAnyArray(ScopeAnyArray *arr){
+	if(arr == NULL)return NULL;
+	ScopeAnyArray *out = malloc(sizeof(ScopeAnyArray));
+	ScopeAnyArray *current = out;
+	ScopeAnyArray *cpFrom = arr;
+	while(true){
+		current->count = 1;
+		current->length = cpFrom->length;
+		for(int i = 0;i < cpFrom->length;i++){
+			current->content[i].typ = cpFrom->content[i].typ;
+			current->content[i].value = cpFrom->content[i].value;
+		}
+		cpFrom = cpFrom->next;
+		if(cpFrom == NULL){
+			current->next = NULL;
+			continue;
+		}
+		current->next = malloc(sizeof(ScopeAnyArray));
+		current = current->next;
+	}
+	return out;
+}
+ScopeObject *scopeCopyObject(ScopeObject *arr){
+	if(arr == NULL)return NULL;
+	ScopeObject *out = malloc(sizeof(ScopeObject));
+	ScopeObject *current = out;
+	ScopeObject *cpFrom = arr;
+	current->prev = NULL;
+	while(true){
+		current->count = 1;
+		current->length = cpFrom->length;
+		for(int i = 0;i < cpFrom->length;i++){
+			current->content[i].typ = cpFrom->content[i].typ;
+			current->content[i].name = cpFrom->content[i].name;
+			current->content[i].value = cpFrom->content[i].value;
+		}
+		cpFrom = cpFrom->next;
+		if(cpFrom == NULL){
+			current->next = NULL;
+			continue;
+		}
+		current->next = malloc(sizeof(ScopeObject));
+		current->wayNext = current->next;
+		current->next->prev = current;
+	}
+	return out;
+}
+
 // hashing string
 int32_t scopeHashString(ScopeString *str){
 	int32_t hash = 0;

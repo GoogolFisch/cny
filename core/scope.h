@@ -38,14 +38,14 @@ typedef union ScopeCombination{
 #define SCOPE_CAPACITY 64
 
 typedef struct ScopeString{
-	int32_t count;
+	int32_t count; // count of instances!
 	int32_t length;
 	int32_t capacity;
 	char *string;
 }ScopeString;
 
 typedef struct ScopeArray{
-	int32_t count;
+	int32_t count; // count of instances!
 	ScopeValue typ;
 	int32_t length;
 	struct ScopeArray *next;
@@ -56,7 +56,7 @@ typedef struct ScopeArray{
 }ScopeArray;
 
 typedef struct ScopeAnyArray{
-	int32_t count;
+	int32_t count; // count of instances!
 	int32_t length;
 	struct ScopeAnyArray *next;
 	struct {
@@ -67,7 +67,7 @@ typedef struct ScopeAnyArray{
 }ScopeAnyArray;
 
 typedef struct ScopeObject{
-	int32_t count;
+	int32_t count; // count of instances!
 	uint32_t lowerBound;
 	struct ScopeObject *next;
 	struct ScopeObject *wayNext;
@@ -88,6 +88,8 @@ ScopeObject *scopeMakeObject();
 ScopeArray *scopeMakeArray();
 ScopeAnyArray *scopeMakeAnyArray();
 ScopeString *scopeMakeString();
+// copy stuff
+ScopeString *scopeCopyString(ScopeString *str){
 // hashing string
 int32_t scopeHashString(ScopeString *str);
 // adding stuff into this
