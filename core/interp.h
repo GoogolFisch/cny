@@ -4,11 +4,12 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<stdint.h>
+#include"scope.h"
 #include"../util.h"
 #include"../structures.c"
 
 
-typedef enum InterpTocken{
+typedef enum InterpToken{
 	INTE_NONE,
 	INTEV_DIRECT_NUM, //
 	INTE_NUMBER,
@@ -17,17 +18,20 @@ typedef enum InterpTocken{
 	INTE_STRING,
 	INTEV_INDIRECT_NUM, //
 	INTEV_PRIO0, //
+	INTE_DOT,
+	INTEV_PRIO1, //
 	INTE_MUL,
 	INTE_DIV,
 	INTE_MOD,
-	INTEV_PRIO1, //
+	INTEV_PRIO2, //
 	INTE_ADD,
 	INTE_SUB,
-	INTEV_PRIO2, //
 	INTEV_PRIO3, //
 	INTE_EQUALS,
 	INTE_BRACK_OPEN,
 	INTE_BRACK_CLOSE,
+	INTE_SQ_BRACK_OPEN,
+	INTE_SQ_BRACK_CLOSE,
 	INTE_SEMI,
 	INTEV_WORD, //
 	INTE_IF,
@@ -40,10 +44,10 @@ typedef enum InterpTocken{
 	INTE_RET,
 
 	INTEV_END, //
-}InterpTocken;
+}InterpToken;
 
 typedef struct InterpTree{
-	InterpTocken tokenType;
+	InterpToken tokenType;
 	void *data;
 	int32_t argumentLength;
 	int32_t flags;
@@ -62,7 +66,7 @@ int32_t interpParseStatement(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 // this could parse stuff with idk
 int32_t interpParseOperation(UtilSharedStruct2 tokenList,int32_t lower,int32_t upper);
 // only top level
-int32_t interpParseFunctions(UtilSharedStruct2 tokenList,UseDictList *globalData);
+int32_t interpParseFunctions(UtilSharedStruct2 tokenList,ScopeObject *globalData);
 
 
 #endif

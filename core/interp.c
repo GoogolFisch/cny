@@ -40,13 +40,15 @@ int32_t interpIsSameToken(uint8_t first,uint8_t last,int32_t state){
 	}
 	return state;
 }
-InterpTocken interpGetTokenType(uint8_t first,int32_t state){
+InterpToken interpGetTokenType(uint8_t first,int32_t state){
 	if(
 		('A' <= first && first <= 'Z') ||
 		('a' <= first && first <= 'z') ||
 		first == '_'
 	)return INTE_KEY_WORD;
 	if(('0' <= first && first <= '9') || first == '.'){
+		if(state == 2)
+			return INTE_DOT;
 		if((state & 2) > 0)
 			return INTE_FLOAT;
 		return INTE_NUMBER;
@@ -61,6 +63,8 @@ InterpTocken interpGetTokenType(uint8_t first,int32_t state){
 	if(first == ';')return INTE_SEMI;
 	if(first == '(')return INTE_BRACK_OPEN;
 	if(first == ')')return INTE_BRACK_CLOSE;
+	if(first == '[')return INTE_SQ_BRACK_OPEN;
+	if(first == ']')return INTE_SQ_BRACK_CLOSE;
 	// TODO
 #ifdef INTEP_DO_TRAP
 	*NULL = 0;
@@ -135,7 +139,7 @@ UtilSharedStruct2 interpMakeTokenList(UtilSharedStruct2 string){
 	int32_t highIndex = 0;
 	int32_t stringIndex = 0;
 	int32_t currentState = 0;
-	InterpTocken curTokenType;
+	InterpToken curTokenType;
 
 	uint8_t firstChar,highChar;
 	firstChar = ((uint8_t*)string.vptr)[lowerIndex];
@@ -269,6 +273,41 @@ void interpStatementIntoTree(InterpTree *base,InterpTree *ltree,InterpTree *rtre
 		}
 	}
 }
+void interpParseLRStatement(
+		UtilSharedStruct2 tokenList,
+		int32_t lower,int32_t upper,
+		InterpToken tLower,InterpToken tUpper
+		){
+	// TODO adding funny features!
+	int32_t idx;
+	InterpTree *tree;
+	int32_t tempIdx1,tempIdx2;
+	tempIdx1 = 0;
+	tempIdx2 = 0;
+	InterpTree *useLTree,*useRTree;
+
+	for(idx = lower;idx < upper;idx++){
+		useLTree = NULL;
+		useRTree = NULL;
+		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
+		// ???
+		tree = &((InterpTree*)tokenList.vptr)[idx];
+		if(tree->tokenType > tLower && tree->tokenType < tUpper){
+			if(tree->ltree == NULL){
+				tempIdx1 = interpGetPosibleToken(tokenList,
+						lower,idx,idx - 1,-1);
+				useLTree = &((InterpTree*)tokenList.vptr)[tempIdx1];
+			}
+			if(tree->rtree == NULL){
+				tempIdx2 = interpGetPosibleToken(tokenList,
+						idx,upper,idx + 1,1);
+				useRTree = &((InterpTree*)tokenList.vptr)[tempIdx2];
+			}
+			interpStatementIntoTree(tree,useLTree,useRTree);
+			// TODO
+		}
+	}
+}
 
 // return the index of the next to parse token
 int32_t interpParseStatement(UtilSharedStruct2 tokenList,int32_t lower,int32_t upper){
@@ -285,32 +324,55 @@ int32_t interpParseStatement(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 		useRTree = NULL;
 		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
 		tree = &((InterpTree*)tokenList.vptr)[idx];
-		if(tree->tokenType == INTE_BRACK_OPEN){
+		if(	tree->tokenType == INTE_BRACK_OPEN ||
+			tree->tokenType == INTE_SQ_BRACK_OPEN
+				){
 			if(bracketDepth == 0){
 				tempIdx1 = idx;
 			}
 			bracketDepth++;
 		}
-		if(tree->tokenType == INTE_BRACK_CLOSE){
+		if(	tree->tokenType == INTE_BRACK_CLOSE ||
+			tree->tokenType == INTE_SQ_BRACK_CLOSE
+				){
 			bracketDepth--;
 			if(bracketDepth > 0)
 				continue;
 			tempIdx2 = idx;
 			interpParseStatement(tokenList,tempIdx1,tempIdx2);
 			// remove ( and ) from beeing used
-			useLTree = &((InterpTree*)tokenList.vptr)[tempIdx1];
-			useRTree = &((InterpTree*)tokenList.vptr)[tempIdx2];
-			useLTree->flags |= 128;
-			useRTree->flags |= 128;
-			if(tempIdx1 - 1 < 0)
+			//useLTree = &((InterpTree*)tokenList.vptr)[tempIdx1];
+			useRTree = &((InterpTree*)tokenList.vptr)[tempIdx1];
+			// test later for indexing
+			if(useLTree->tokenType != INTE_SQ_BRACK_CLOSE){
+				useRTree->flags |= 128;
+			}
+			tree->flags |= 128;
+			if(tempIdx1 - 1 < 0){
+				useRTree->flags |= 128;
 				continue;
+			}
 			// test if it sould be an function
 			useLTree = &((InterpTree*)tokenList.vptr)[tempIdx1 - 1];
-			if(useLTree->tokenType != INTE_KEY_WORD)
+			if(useLTree->tokenType != INTE_KEY_WORD){
+				useRTree->flags |= 128;
 				continue;
+			}
 			// is this used?
-			if((useLTree->flags & 128) > 0)
+			if((useLTree->flags & 128) > 0){
+				useRTree->flags |= 128;
 				continue;
+			}
+			// used for indexing
+			if(tree->tokenType == INTE_SQ_BRACK_CLOSE){
+				useRTree->ltree = useLTree;
+				int32_t position = interpGetPosibleToken(
+						tokenList,lower,upper,tempIdx1,1);
+				useRTree->rtree = 
+					&((InterpTree*)tokenList.vptr)[position];
+				continue;
+			}
+			// used for calling!
 			// count arguments
 			int32_t callAkku = 0;
 			for(int32_t ak = tempIdx1 + 1;ak < tempIdx2 - 1;ak++){
@@ -333,50 +395,12 @@ int32_t interpParseStatement(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 		}
 
 	}
+	// parse word.subword
+	interpParseLRStatement(tokenList,lower,upper,INTEV_PRIO0,INTEV_PRIO1);
 	// parse * / %
-	for(idx = lower;idx < upper;idx++){
-		useLTree = NULL;
-		useRTree = NULL;
-		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
-		// ???
-		tree = &((InterpTree*)tokenList.vptr)[idx];
-		if(tree->tokenType > INTEV_PRIO0 && tree->tokenType < INTEV_PRIO1){
-			if(tree->ltree == NULL){
-				tempIdx1 = interpGetPosibleToken(tokenList,
-						lower,idx,idx - 1,-1);
-				useLTree = &((InterpTree*)tokenList.vptr)[tempIdx1];
-			}
-			if(tree->rtree == NULL){
-				tempIdx2 = interpGetPosibleToken(tokenList,
-						idx,upper,idx + 1,1);
-				useRTree = &((InterpTree*)tokenList.vptr)[tempIdx2];
-			}
-			interpStatementIntoTree(tree,useLTree,useRTree);
-			// TODO
-		}
-	}
+	interpParseLRStatement(tokenList,lower,upper,INTEV_PRIO1,INTEV_PRIO2);
 	// parse + -
-	for(idx = lower;idx < upper;idx++){
-		useLTree = NULL;
-		useRTree = NULL;
-		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
-		// ???
-		tree = &((InterpTree*)tokenList.vptr)[idx];
-		if(tree->tokenType > INTEV_PRIO1 && tree->tokenType < INTEV_PRIO2){
-			if(tree->ltree == NULL){
-				tempIdx1 = interpGetPosibleToken(tokenList,
-						lower,idx,idx - 1,-1);
-				useLTree = &((InterpTree*)tokenList.vptr)[tempIdx1];
-			}
-			if(tree->rtree == NULL){
-				tempIdx2 = interpGetPosibleToken(tokenList,
-						idx,upper,idx + 1,1);
-				useRTree = &((InterpTree*)tokenList.vptr)[tempIdx2];
-			}
-			interpStatementIntoTree(tree,useLTree,useRTree);
-			// TODO
-		}
-	}
+	interpParseLRStatement(tokenList,lower,upper,INTEV_PRIO2,INTEV_PRIO3);
 	return idx;
 }
 
@@ -438,9 +462,10 @@ int32_t interpParseOperation(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 	return idx;
 }
 // could also get a scope?
-int32_t interpParseFunctions(UtilSharedStruct2 tokenList,UseDictList *globalData){
+int32_t interpParseFunctions(UtilSharedStruct2 tokenList,ScopeObject *globalData){
 	int32_t idx;
 	int32_t tempIdx0,tempIdx1,tempIdx2;
+	InterpTree *tree;
 	tempIdx0 = 0;
 	tempIdx1 = 0;
 	tempIdx2 = 0;

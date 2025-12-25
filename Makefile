@@ -11,3 +11,4 @@ main:
 buildCny:
 	@echo Building cny
 	$(CC) $(libs) $(buildConf) -c -o $(build)/interp.o ./core/interp.c
+	$(CC) $(libs) $(buildConf) -c -o $(build)/scope.o ./core/scope.c
