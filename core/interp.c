@@ -242,7 +242,8 @@ int32_t interpGetPosibleToken(UtilSharedStruct2 tokenList,int32_t lower,int32_t 
 	return -1;
 }
 
-void interpStatementIntoTree(InterpTree *base,InterpTree *ltree,InterpTree *rtree){
+void interpStatementIntoTree(
+		InterpTree *base,InterpTree *ltree,InterpTree *rtree,bool pretendFull){
 	// TODO
 	if(
 		ltree != NULL &&
@@ -256,6 +257,8 @@ void interpStatementIntoTree(InterpTree *base,InterpTree *ltree,InterpTree *rtre
 			base->ltree = ltree;
 			ltree->flags |= 128;
 			base->flags |= 64;
+			if(pretendFull)
+				base->flags |= 966;
 		}
 	}
 	if(
@@ -270,13 +273,16 @@ void interpStatementIntoTree(InterpTree *base,InterpTree *ltree,InterpTree *rtre
 			base->rtree = rtree;
 			rtree->flags |= 128;
 			base->flags |= 32;
+			if(pretendFull)
+				base->flags |= 96;
 		}
 	}
 }
 void interpParseLRStatement(
 		UtilSharedStruct2 tokenList,
 		int32_t lower,int32_t upper,
-		InterpToken tLower,InterpToken tUpper
+		InterpToken tLower,InterpToken tUpper,
+		bool pretendFull
 		){
 	// TODO adding funny features!
 	int32_t idx;
@@ -303,7 +309,7 @@ void interpParseLRStatement(
 						idx,upper,idx + 1,1);
 				useRTree = &((InterpTree*)tokenList.vptr)[tempIdx2];
 			}
-			interpStatementIntoTree(tree,useLTree,useRTree);
+			interpStatementIntoTree(tree,useLTree,useRTree,pretendFull);
 			// TODO
 		}
 	}
@@ -396,11 +402,11 @@ int32_t interpParseStatement(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 
 	}
 	// parse word.subword
-	interpParseLRStatement(tokenList,lower,upper,INTEV_PRIO0,INTEV_PRIO1);
+	interpParseLRStatement(tokenList,lower,upper,INTEV_PRIO0,INTEV_PRIO1,false);
 	// parse * / %
-	interpParseLRStatement(tokenList,lower,upper,INTEV_PRIO1,INTEV_PRIO2);
+	interpParseLRStatement(tokenList,lower,upper,INTEV_PRIO1,INTEV_PRIO2,true);
 	// parse + -
-	interpParseLRStatement(tokenList,lower,upper,INTEV_PRIO2,INTEV_PRIO3);
+	interpParseLRStatement(tokenList,lower,upper,INTEV_PRIO2,INTEV_PRIO3,false);
 	return idx;
 }
 
