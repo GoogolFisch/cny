@@ -14,6 +14,7 @@ typedef enum ScopeValue{
 	SCOPE_ARRAY,
 	SCOPE_ANY_ARRAY,
 	SCOPE_FUNCTION,
+	SCOPE_BUILD_IN_FUNCTION,
 	SCOPE_OBJECT,
 }ScopeValue;
 
@@ -89,7 +90,10 @@ ScopeArray *scopeMakeArray();
 ScopeAnyArray *scopeMakeAnyArray();
 ScopeString *scopeMakeString();
 // copy stuff
-ScopeString *scopeCopyString(ScopeString *str){
+ScopeString *scopeCopyString(ScopeString *str);
+ScopeArray *scopeCopyArray(ScopeArray *arr);
+ScopeAnyArray *scopeCopyAnyArray(ScopeAnyArray *arr);
+ScopeObject *scopeCopyObject(ScopeObject *arr);
 // hashing string
 int32_t scopeHashString(ScopeString *str);
 // adding stuff into this
@@ -98,6 +102,28 @@ int32_t scopeInsertObject(
 		ScopeValue typ,
 		void *value,
 		ScopeString *str
+);
+int32_t scopeAppendArray(
+		ScopeArray *scope,
+		ScopeValue typ,
+		void *value
+);
+int32_t scopeAppendAnyArray(
+		ScopeAnyArray *scope,
+		ScopeValue typ,
+		void *value
+		);
+int32_t scopeInsertArray(
+		ScopeArray *scope,
+		ScopeValue typ,
+		void *value,
+		int32_t position
+);
+int32_t scopeInsertAnyArray(
+		ScopeAnyArray *scope,
+		ScopeValue typ,
+		void *value,
+		int32_t position
 );
 
 #endif

@@ -1,6 +1,7 @@
 
 #ifndef INTERP_H_
 #define INTERP_H_
+
 #include<stdio.h>
 #include<stdlib.h>
 #include<stdint.h>
@@ -61,7 +62,7 @@ typedef struct InterpTree{
 // convert the input-string into program
 UtilSharedStruct2 interpMakeTokenList(UtilSharedStruct2 string);
 // turn if -> INTE_IF
-void interpFilterKeyWords(UtilSharedStruct2 list);
+void interpFilterKeyWords(UtilSharedStruct2 tokenList);
 // this could parse stuff with idk
 int32_t interpParseStatement(UtilSharedStruct2 tokenList,int32_t lower,int32_t upper);
 // this could parse stuff with idk

@@ -410,7 +410,10 @@ int32_t interpParseStatement(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 	return idx;
 }
 
-// TODO
+// TODO seperate this stuff?
+// 1. assignment/capculation-ish
+// 2. return ?
+// 3. if/loop/(for?)...
 int32_t interpParseOperation(UtilSharedStruct2 tokenList,int32_t lower,int32_t upper){
 	int32_t idx,lastIdx;
 	int32_t tempIdx0,tempIdx1,tempIdx2,tempIdx3;
@@ -518,7 +521,7 @@ int32_t interpParseFunctions(UtilSharedStruct2 tokenList,ScopeObject *globalData
 			// adding functions
 			state = 0;
 		}
-
 	}
 	return 0;
 }
+

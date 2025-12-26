@@ -17,16 +17,4 @@ void logRemoveLogger(LoggingFile *log){
 	free(log);
 }
 
-// will log to stdout if logger is NULL
-// or respect the log level in the logger struct
-// level isn't currently used?
-#define LOG_WRITE(logger,level,...) if(logger == NULL){ \
-		if(level <= LOG_ERROR) \
-			fputs(LogLevelString[level]); \
-		printf(__VA_ARGS__); \
-	}else if(level >= logger->level){ \
-		if(level <= LOG_ERROR) \
-			fputs(LogLevelString[level]); \
-		fprintf(logger->fptr,__VA_ARGS__); \
-	}
 

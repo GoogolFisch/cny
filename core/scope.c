@@ -39,7 +39,7 @@ ScopeString *scopeMakeString(){
 
 // copy stuff
 ScopeString *scopeCopyString(ScopeString *str){
-	if(arr == NULL)return NULL;
+	if(str == NULL)return NULL;
 	ScopeString *out = malloc(sizeof(ScopeString));
 	out->string = malloc(sizeof(char) * str->capacity);
 	for(int i = 0;i < str->length;i++){
@@ -55,7 +55,7 @@ ScopeArray *scopeCopyArray(ScopeArray *arr){
 	ScopeArray *out = malloc(sizeof(ScopeArray));
 	ScopeArray *current = out;
 	ScopeArray *cpFrom = arr;
-	while(true){
+	while(1){
 		current->count = 1;
 		current->typ = cpFrom->typ;
 		current->length = cpFrom->length;
@@ -77,7 +77,7 @@ ScopeAnyArray *scopeCopyAnyArray(ScopeAnyArray *arr){
 	ScopeAnyArray *out = malloc(sizeof(ScopeAnyArray));
 	ScopeAnyArray *current = out;
 	ScopeAnyArray *cpFrom = arr;
-	while(true){
+	while(1){
 		current->count = 1;
 		current->length = cpFrom->length;
 		for(int i = 0;i < cpFrom->length;i++){
@@ -100,7 +100,7 @@ ScopeObject *scopeCopyObject(ScopeObject *arr){
 	ScopeObject *current = out;
 	ScopeObject *cpFrom = arr;
 	current->prev = NULL;
-	while(true){
+	while(1){
 		current->count = 1;
 		current->length = cpFrom->length;
 		for(int i = 0;i < cpFrom->length;i++){
@@ -192,7 +192,154 @@ int32_t scopeInsertObject(
 	return 0;
 }
 
-int32_t scopeAppendArray(){
+int32_t scopeAppendArray(
+		ScopeArray *scope,
+		ScopeValue typ,
+		void *value
+		){
+	ScopeArray *current = scope;
+	// if there is anything (here even potentially)
+	// regect if it doesn't match the type!
+	if(current->length > 0 && current->next != NULL && current->typ != typ)
+		// yield error for not fitting in!
+		return 1;
+	// used 4 when this is empty!
+	current->typ = typ;
+	while(current->next != NULL)
+		current = current->next;
+	if(current->length >= SCOPE_CAPACITY){
+		current->next = malloc(sizeof(ScopeArray));
+		// isn't very usefull...
+		current->next->typ = current->typ;
+		current = current->next;
+		current->length = 0;
+		current->next = NULL;
+	}
+	current->content[current->length++].value = value;
+	return 0;
+}
+int32_t scopeAppendAnyArray(
+		ScopeAnyArray *scope,
+		ScopeValue typ,
+		void *value
+		){
+	ScopeAnyArray *current = scope;
+	while(current->next != NULL)
+		current = current->next;
+	if(current->length >= SCOPE_CAPACITY){
+		current->next = malloc(sizeof(ScopeAnyArray));
+		// isn't very usefull...
+		current = current->next;
+		current->length = 0;
+		current->next = NULL;
+	}
+	current->content[current->length++].value = value;
+	current->content[current->length++].typ = typ;
+	return 0;
+}
+int32_t scopeInsertArray(
+		ScopeArray *scope,
+		ScopeValue typ,
+		void *value,
+		int32_t position
+		){
+	ScopeArray *current = scope;
+	int32_t counted = 0;
+	// if there is anything (here even potentially)
+	// regect if it doesn't match the type!
+	if(current->length > 0 && current->next != NULL && current->typ != typ)
+		// yield error for not fitting in!
+		return 1;
+	// used 4 when this is empty!
+	current->typ = typ;
+	while(current->next != NULL){
+		counted += current->length;
+		if(counted > position)
+			break;
+		if(counted == position){
+			// edge case?
+			if(current->next->length < SCOPE_CAPACITY){
+				current = current->next;
+				counted += current->length;
+			}
+			break;
+		}
+		current = current->next;
+	}
+	counted -= current->length;
+	if(current->length >= SCOPE_CAPACITY){
+		ScopeArray *create = malloc(sizeof(ScopeArray));
+		create->next = current->next;
+		create->count = 1;
+		create->typ = current->typ;
+		current->next = create;
+		int32_t splice = 0;
+		for(int32_t idx = current->length / 2;idx < current->length;idx++){
+			create->content[splice] = current->content[idx];
+			splice++;
+		}
+		counted += splice;
+		current->length -= splice;
+		create->length = splice;
+		if(counted >= position)
+			counted -= splice;
+		else current = create;
+	}
+	// TODO make insert!
+	for(int idx = current->length;idx > 0;idx--){
+		current->content[idx] = current->content[idx - 1];
+	}
+	current->content[position - counted].value = value;
+	current->length++;
+	return 0;
+}
+int32_t scopeInsertAnyArray(
+		ScopeAnyArray *scope,
+		ScopeValue typ,
+		void *value,
+		int32_t position
+		){
+	ScopeAnyArray *current = scope;
+	int32_t counted = 0;
+	while(current->next != NULL){
+		counted += current->length;
+		if(counted > position)
+			break;
+		if(counted == position){
+			// edge case?
+			if(current->next->length < SCOPE_CAPACITY){
+				current = current->next;
+				counted += current->length;
+			}
+			break;
+		}
+		current = current->next;
+	}
+	counted -= current->length;
+	if(current->length >= SCOPE_CAPACITY){
+		ScopeAnyArray *create = malloc(sizeof(ScopeAnyArray));
+		create->next = current->next;
+		create->count = 1;
+		current->next = create;
+		int32_t splice = 0;
+		for(int32_t idx = current->length / 2;idx < current->length;idx++){
+			create->content[splice] = current->content[idx];
+			splice++;
+		}
+		counted += splice;
+		current->length -= splice;
+		create->length = splice;
+		if(counted >= position)
+			counted -= splice;
+		else current = create;
+	}
+	// TODO make insert!
+	for(int idx = current->length;idx > 0;idx--){
+		current->content[idx] = current->content[idx - 1];
+	}
+	current->content[position - counted].value = value;
+	current->content[position - counted].typ = typ;
+	current->length++;
 	return 0;
 }
 
