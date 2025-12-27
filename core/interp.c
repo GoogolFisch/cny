@@ -2,6 +2,7 @@
 #include "interp.h"
 
 
+// TODO add comments!
 int32_t interpIsSameToken(uint8_t first,uint8_t last,int32_t state){
 	state &= ~1;
 	if(state & 4) state |= 1;
@@ -65,7 +66,7 @@ InterpToken interpGetTokenType(uint8_t first,int32_t state){
 	if(first == ')')return INTE_BRACK_CLOSE;
 	if(first == '[')return INTE_SQ_BRACK_OPEN;
 	if(first == ']')return INTE_SQ_BRACK_CLOSE;
-	// TODO
+	// TODO adding more token translations
 #ifdef INTEP_DO_TRAP
 	*NULL = 0;
 #endif
@@ -410,10 +411,73 @@ int32_t interpParseStatement(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 	return idx;
 }
 
+int32_t interpParseOperation_RET(
+		UtilSharedStruct2 tokenList,
+		int32_t current,int32_t lower,int32_t upper){
+	InterpTree *tree;
+	// the ret keyword
+	tree = &((InterpTree*)tokenList.vptr)[idx];
+	int32_t tempIdx;
+	InterpTree *rtree;
+	// the stuff to return?
+	tempIdx = interpGetPosibleToken(tokenList,lower,upper,current + 1,1);
+	rtree = &((InterpTree*)tokenList.vptr)[tempIdx];
+	if(rtree->tokenType < INTE_SEMI){
+		tree->rtree = rtree;
+		rtree->flags = 128;
+	}
+	else{
+		// TODO adding error logging
+	}
+	// goto next statement (hopfully!)
+	current = interpGetPosibleToken(tokenList,lower,upper,tempIdx,1);
+	rtree = &((InterpTree*)tokenList.vptr)[current];
+	if(rtree->tokenType == INTE_SEMI)current++;
+	return current;
+}
+int32_t interpParseOperation_WORD(
+		UtilSharedStruct2 tokenList,
+		int32_t current,int32_t lower,int32_t upper){
+	InterpTree *tree, *ltree, *rtree;
+	tree = &((InterpTree*)tokenList.vptr)[idx];
+	// the ret keyword
+	int32_t tempIdx0,tempIdx1,tempIdx2;
+	int32_t depth = 0;
+	int32_t idx;
+	// ltree 4 condition
+	for(idx = current + 1;idx < upper;idx++){
+		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
+		ltree = &((InterpTree*)tokenList.vptr)[idx];
+		if(ltree->tokenType == INTE_BRACK_OPEN){
+			if(depth == 0)
+				tempIdx0 = idx;
+			depth++;
+		}
+		if(ltree->tokenType == INTE_BRACK_CLOSE){
+			depth--;
+			if(depth != 0)continue;
+		}
+
+	}
+	// rtree 4 when the condition holds
+	for(idx = current;idx < upper;idx++){
+	}
+	return current;
+}
+// note:
+//  rstatement: just statement
+//  lstatement: todo
+//  functions: see lower
+//  keywords:
+//    return will use rstateent
+//    if like functions, if(rstatement)(operations)
+//    for is funny, but also for(special)(operations)
+//
 // TODO seperate this stuff?
 // 1. assignment/capculation-ish
 // 2. return ?
-// 3. if/loop/(for?)...
+// 3. if/loop/..?
+// 4. for
 int32_t interpParseOperation(UtilSharedStruct2 tokenList,int32_t lower,int32_t upper){
 	int32_t idx,lastIdx;
 	int32_t tempIdx0,tempIdx1,tempIdx2,tempIdx3;
@@ -427,6 +491,18 @@ int32_t interpParseOperation(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 	for(idx = lower;idx < upper;idx++,lastIdx = idx){
 		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
 		tree = &((InterpTree*)tokenList.vptr)[idx];
+		// this could be an switch?
+		if(tree->tokenType == INTEV_RET){
+			idx = interpParseOperation_RET(tokenList,idx,lower,upper);
+			idx--;
+			continue;
+		}
+		if(tree->tokenType >= INTEV_IF && tree->tokenType <= INTE_ELSE_IF){
+			// TODO
+		}
+		if(tree->tokenType == INTEV_FOR){
+			// TODO
+		}
 		if(tree->tokenType == INTE_EQUALS){
 			useLTree = &((InterpTree*)tokenList.vptr)[lastIdx];
 			useLTree->flags |= 128;
