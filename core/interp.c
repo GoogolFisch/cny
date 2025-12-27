@@ -439,12 +439,76 @@ int32_t interpParseOperation_WORD(
 		UtilSharedStruct2 tokenList,
 		int32_t current,int32_t lower,int32_t upper){
 	InterpTree *tree, *ltree, *rtree;
-	tree = &((InterpTree*)tokenList.vptr)[idx];
+	tree = &((InterpTree*)tokenList.vptr)[current];
 	// the ret keyword
-	int32_t tempIdx0,tempIdx1,tempIdx2;
+	int32_t tempIdx0,tempIdx1,tempIdx2,tempIdx3;
+	tempIdx0 = current;
 	int32_t depth = 0;
 	int32_t idx;
 	// ltree 4 condition
+	for(idx = current + 1;idx < upper;idx++){
+		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
+		ltree = &((InterpTree*)tokenList.vptr)[idx];
+		if(ltree->tokenType == INTE_BRACK_OPEN){
+			if(depth == 0){
+				tempIdx0 = idx;
+				ltree->flags = 128;
+			}
+			depth++;
+		}
+		if(ltree->tokenType == INTE_BRACK_CLOSE){
+			depth--;
+			if(depth != 0)
+				continue;
+			ltree->flags = 128;
+			interpParseStatement(tokenList,tempIdx0 + 1,idx - 1);
+			break;
+		}
+	}
+	tempIdx1 = interpGetPosibleToken(tokenList,lower,upper,current + 1,1);
+	ltree = &((InterpTree*)tokenList.vptr)[tempIdx1];
+	ltree->flags = 128;
+	tree->ltree = ltree;
+	tempIdx2 = interpGetPosibleToken(tokenList,lower,upper,idx + 1,1);
+	// rtree 4 when the condition holds
+	for(idx = tempIdx2;idx < upper;idx++){
+		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
+		ltree = &((InterpTree*)tokenList.vptr)[idx];
+		if(ltree->tokenType == INTE_BRACK_OPEN){
+			if(depth == 0)
+				tempIdx2 = idx;
+			depth++;
+		}
+		if(ltree->tokenType == INTE_BRACK_CLOSE){
+			depth--;
+			if(depth != 0)
+				continue;
+			// redo this tree
+			interpParseOperation(tokenList,tempIdx2 + 1,idx - 1);
+			break;
+		}
+	}
+	tempIdx3 = interpGetPosibleToken(tokenList,lower,upper,tempIdx2 + 1,1);
+	rtree = &((InterpTree*)tokenList.vptr)[tempIdx3];
+	//rtree->flags = 128;
+	tree->rtree = rtree;
+
+	tempIdx3 = interpGetPosibleToken(tokenList,lower,upper,idx + 1,1);
+	rtree = &((InterpTree*)tokenList.vptr)[tempIdx3];
+	tree->data = rtree;
+	return tempIdx3;
+}
+int32_t interpParseOperation_ELSE(
+		UtilSharedStruct2 tokenList,
+		int32_t current,int32_t lower,int32_t upper){
+	InterpTree *tree, *ltree, *rtree;
+	tree = &((InterpTree*)tokenList.vptr)[current];
+	// the ret keyword
+	int32_t tempIdx0,tempIdx1;
+	tempIdx0 = current;
+	int32_t depth = 0;
+	int32_t idx;
+	// rtree 4 when the condition holds
 	for(idx = current + 1;idx < upper;idx++){
 		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
 		ltree = &((InterpTree*)tokenList.vptr)[idx];
@@ -455,14 +519,21 @@ int32_t interpParseOperation_WORD(
 		}
 		if(ltree->tokenType == INTE_BRACK_CLOSE){
 			depth--;
-			if(depth != 0)continue;
+			if(depth != 0)
+				continue;
+			// redo this tree
+			interpParseOperation(tokenList,tempIdx2 + 1,idx - 1);
+			break;
 		}
+	}
+	tempIdx0 = interpGetPosibleToken(tokenList,lower,upper,tempIdx0 + 1,1);
+	ltree = &((InterpTree*)tokenList.vptr)[tempIdx0];
+	tree->rtree = ltree;
 
-	}
-	// rtree 4 when the condition holds
-	for(idx = current;idx < upper;idx++){
-	}
-	return current;
+	tempIdx1 = interpGetPosibleToken(tokenList,lower,upper,idx + 1,1);
+	rtree = &((InterpTree*)tokenList.vptr)[tempIdx1];
+	tree->data = rtree;
+	return tempIdx3;
 }
 // note:
 //  rstatement: just statement
@@ -475,9 +546,10 @@ int32_t interpParseOperation_WORD(
 //
 // TODO seperate this stuff?
 // 1. assignment/capculation-ish
-// 2. return ?
-// 3. if/loop/..?
-// 4. for
+// 2. -return ?
+// 3. -if/loop/..?
+// 4. -else
+// 5. for
 int32_t interpParseOperation(UtilSharedStruct2 tokenList,int32_t lower,int32_t upper){
 	int32_t idx,lastIdx;
 	int32_t tempIdx0,tempIdx1,tempIdx2,tempIdx3;
