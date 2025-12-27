@@ -37,8 +37,8 @@ typedef enum InterpToken{
 	INTE_SEMI,
 	INTEV_WORD, //
 	INTE_IF,
-	INTE_ELSE,
 	INTE_ELSE_IF,
+	INTE_ELSE,
 	INTE_DEF,
 	INTE_FOR,
 	INTE_LOOP,
