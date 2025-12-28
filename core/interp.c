@@ -698,8 +698,7 @@ int32_t interpParseOperation(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 			idx--;
 			continue;
 		}
-		// else other thing
-		// also add ASSIGN
+		/*
 		if(tree->tokenType == INTE_EQUALS){
 			useLTree = &((InterpTree*)tokenList.vptr)[lastIdx];
 			useLTree->flags |= 128;
@@ -742,6 +741,7 @@ int32_t interpParseOperation(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 		tempIdx2 = tempIdx0 + 1;
 		useLTree = NULL;
 		useRTree = NULL;
+		// */
 	}
 	return idx;
 }
