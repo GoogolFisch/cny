@@ -636,6 +636,68 @@ int32_t interpParseOperation_ASSIGN(
 	tempIdx1 = interpGetPosibleToken(tokenList,lower,upper,idx + 1,1);
 	return idx + 2; // after semicolon
 }
+int32_t interpParseOperation_DEF(
+		UtilSharedStruct2 tokenList,
+		int32_t current,int32_t lower,int32_t upper){
+	InterpTree *tree, *ltree, *rtree;
+	tree = &((InterpTree*)tokenList.vptr)[current];
+	// the ret keyword
+	int32_t tempIdx0,tempIdx1,tempIdx2,tempIdx3;
+	tempIdx0 = current;
+	int32_t depth = 0;
+	int32_t idx;
+	// counting arguments?
+	for(idx = current + 1;idx < upper;idx++){
+		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
+		ltree = &((InterpTree*)tokenList.vptr)[idx];
+		if(ltree->tokenType == INTE_BRACK_OPEN){
+			if(depth == 0){
+				tempIdx0 = idx;
+				ltree->flags |= 128;
+			}
+			depth++;
+		}
+		if(ltree->tokenType == INTE_BRACK_CLOSE){
+			depth--;
+			if(depth != 0)
+				continue;
+			ltree->flags |= 128;
+			interpParseStatement(tokenList,tempIdx0 + 1,idx - 1);
+			break;
+		}
+	}
+	tempIdx1 = interpGetPosibleToken(tokenList,lower,upper,current + 1,1);
+	ltree = &((InterpTree*)tokenList.vptr)[tempIdx1];
+	ltree->flags |= 128;
+	tree->data = ltree;
+	tempIdx2 = interpGetPosibleToken(tokenList,lower,upper,idx + 1,1);
+	// rtree 4 when the condition holds
+	for(idx = tempIdx2;idx < upper;idx++){
+		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
+		ltree = &((InterpTree*)tokenList.vptr)[idx];
+		if(ltree->tokenType == INTE_BRACK_OPEN){
+			if(depth == 0)
+				tempIdx2 = idx;
+			depth++;
+		}
+		if(ltree->tokenType == INTE_BRACK_CLOSE){
+			depth--;
+			if(depth != 0)
+				continue;
+			// redo this tree
+			interpParseOperation(tokenList,tempIdx2 + 1,idx - 1);
+			break;
+		}
+	}
+	tempIdx3 = interpGetPosibleToken(tokenList,lower,upper,tempIdx2 + 1,1);
+	ltree = &((InterpTree*)tokenList.vptr)[tempIdx3];
+	tree->ltree = ltree;
+
+	tempIdx3 = interpGetPosibleToken(tokenList,lower,upper,idx + 1,1);
+	rtree = &((InterpTree*)tokenList.vptr)[tempIdx3];
+	tree->rtree = rtree;
+	return tempIdx3;
+}
 // note:
 //  rstatement: just statement
 //  lstatement: todo
@@ -651,6 +713,7 @@ int32_t interpParseOperation_ASSIGN(
 // 3. -if/loop/..?		: interpParseOperation_WORD
 // 4. -else			: interpParseOperation_ELSE
 // 5. -for (TODO)		: interpParseOperation_FOR
+// 6. -def			: interpParseOperation_DEF
 int32_t interpParseOperation(UtilSharedStruct2 tokenList,int32_t lower,int32_t upper){
 	int32_t idx,lastIdx;
 	int32_t tempIdx0,tempIdx1,tempIdx2,tempIdx3;
@@ -693,7 +756,13 @@ int32_t interpParseOperation(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 			continue;
 		}
 		if(tree->tokenType == INTE_SEMI){
-			idx = interpParseOperation_FOR(tokenList,tempIdx,lower,upper);
+			idx = interpParseOperation_ASSIGN(tokenList,tempIdx,lower,upper);
+			tempIdxNext = idx;
+			idx--;
+			continue;
+		}
+		if(tree->tokenType == INTE_DEF){
+			idx = interpParseOperation_DEF(tokenList,tempIdx,lower,upper);
 			tempIdxNext = idx;
 			idx--;
 			continue;
