@@ -677,7 +677,33 @@ int32_t interpParseOperation_DEF(
 		}
 	}
 	tree->argumentLength = argCount;
-	void *lengthing = malloc(sizeof(void *));
+	void *lengthing = malloc(sizeof(void*));
+	// adding params into array
+	for(idx = current + 1;idx < upper;idx++){
+		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
+		ltree = &((InterpTree*)tokenList.vptr)[idx];
+		if(ltree->tokenType == INTE_BRACK_OPEN){
+			if(depth == 0){
+				tempIdx0 = idx;
+				ltree->flags |= 128;
+			}
+			// TODO say error!
+			if(depth > 1){}
+			depth++;
+		}
+		if(depth == 1 && ltree->tokenType == INTE_KEY_WORD)
+			argCount++;
+		if(ltree->tokenType == INTE_BRACK_CLOSE){
+			depth--;
+			if(depth != 0)
+				continue;
+			//ltree->flags |= 128;
+			//interpParseStatement(tokenList,tempIdx0 + 1,idx - 1);
+			break;
+		}
+	}
+	// after 
+	tree->data = lengthing;
 	tempIdx1 = interpGetPosibleToken(tokenList,lower,upper,current + 1,1);
 	ltree = &((InterpTree*)tokenList.vptr)[tempIdx1];
 	ltree->flags |= 128;
