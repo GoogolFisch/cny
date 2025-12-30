@@ -18,24 +18,6 @@ typedef enum ScopeValue{
 	SCOPE_OBJECT,
 }ScopeValue;
 
-/*typedef struct Scope{
-	ScopeValue valType;
-	union{
-		int32_t ival;
-		float fval;
-		char *strVal;
-		void *objVal;
-	};
-	int32_t length;
-	int32_t capacity;
-}Scope;*/
-typedef union ScopeCombination{
-	int32_t ival;
-	float fval;
-	char *strVal;
-	void *objVal;
-}ScopeCombination;
-
 #define SCOPE_CAPACITY 64
 
 typedef struct ScopeString{
@@ -84,19 +66,27 @@ typedef struct ScopeObject{
 
 
 
-// creating these Objects!
+// === creating these Objects!
 ScopeObject *scopeMakeObject();
 ScopeArray *scopeMakeArray();
 ScopeAnyArray *scopeMakeAnyArray();
 ScopeString *scopeMakeString();
-// copy stuff
+// === copy stuff
 ScopeString *scopeCopyString(ScopeString *str);
 ScopeArray *scopeCopyArray(ScopeArray *arr);
 ScopeAnyArray *scopeCopyAnyArray(ScopeAnyArray *arr);
 ScopeObject *scopeCopyObject(ScopeObject *arr);
-// hashing string
+// === scope counting stuff!
+void scopeUp(void *value);
+// will free if it should be freed
+void scopeTst(void *value);
+void scopeDown(void *value);
+// === hashing string
 int32_t scopeHashString(ScopeString *str);
-// adding stuff into this
+//int32_t scopeHashString__(ScopeString *str);
+//int scopeEqualString_(ScopeString *s1,ScopeString *s2,int32_t h2);
+int scopeEqualString(ScopeString *s1,ScopeString *s2);
+// === adding stuff into this
 int32_t scopeInsertObject(
 		ScopeObject *scope,
 		ScopeValue typ,
@@ -125,5 +115,19 @@ int32_t scopeInsertAnyArray(
 		void *value,
 		int32_t position
 );
+// === override stuff in arrays
+int32_t scopeReplaceArray(
+		ScopeArray *scope,
+		ScopeValue typ,
+		void *value,
+		int32_t position
+);
+int32_t scopeReplaceAnyArray(
+		ScopeAnyArray *scope,
+		ScopeValue typ,
+		void *value,
+		int32_t position
+);
+// === ...
 
 #endif

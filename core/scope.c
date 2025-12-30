@@ -3,14 +3,14 @@
 
 
 
-// creating these Objects!
+// === creating these Objects!
 ScopeObject *scopeMakeObject(){
 	ScopeObject *out = malloc(sizeof(ScopeObject));
 	out->next = NULL;
 	out->wayNext = NULL;
 	out->prev = NULL;
 	out->length = 0;
-	out->count = 1;
+	out->count = 0;
 	out->lowerBound = -1;
 	return out;
 }
@@ -18,26 +18,26 @@ ScopeArray *scopeMakeArray(){
 	ScopeArray *out = malloc(sizeof(ScopeArray));
 	out->next = NULL;
 	out->length = 0;
-	out->count = 1;
+	out->count = 0;
 	return out;
 }
 ScopeAnyArray *scopeMakeAnyArray(){
 	ScopeAnyArray *out = malloc(sizeof(ScopeAnyArray));
 	out->next = NULL;
 	out->length = 0;
-	out->count = 1;
+	out->count = 0;
 	return out;
 }
 ScopeString *scopeMakeString(){
 	ScopeString *out = malloc(sizeof(ScopeString));
 	out->string = NULL;
 	out->length = 0;
-	out->count = 1;
+	out->count = 0;
 	out->capacity = 0;
 	return out;
 }
 
-// copy stuff
+// === copy stuff
 ScopeString *scopeCopyString(ScopeString *str){
 	if(str == NULL)return NULL;
 	ScopeString *out = malloc(sizeof(ScopeString));
@@ -47,7 +47,7 @@ ScopeString *scopeCopyString(ScopeString *str){
 	}
 	out->length = str->length;
 	str->capacity = str->capacity;
-	out->count = 1;
+	out->count = 0;
 	return out;
 }
 ScopeArray *scopeCopyArray(ScopeArray *arr){
@@ -56,7 +56,7 @@ ScopeArray *scopeCopyArray(ScopeArray *arr){
 	ScopeArray *current = out;
 	ScopeArray *cpFrom = arr;
 	while(1){
-		current->count = 1;
+		current->count = 0;
 		current->typ = cpFrom->typ;
 		current->length = cpFrom->length;
 		for(int i = 0;i < cpFrom->length;i++){
@@ -78,7 +78,7 @@ ScopeAnyArray *scopeCopyAnyArray(ScopeAnyArray *arr){
 	ScopeAnyArray *current = out;
 	ScopeAnyArray *cpFrom = arr;
 	while(1){
-		current->count = 1;
+		current->count = 0;
 		current->length = cpFrom->length;
 		for(int i = 0;i < cpFrom->length;i++){
 			current->content[i].typ = cpFrom->content[i].typ;
@@ -101,7 +101,7 @@ ScopeObject *scopeCopyObject(ScopeObject *arr){
 	ScopeObject *cpFrom = arr;
 	current->prev = NULL;
 	while(1){
-		current->count = 1;
+		current->count = 0;
 		current->length = cpFrom->length;
 		for(int i = 0;i < cpFrom->length;i++){
 			current->content[i].typ = cpFrom->content[i].typ;
@@ -120,7 +120,7 @@ ScopeObject *scopeCopyObject(ScopeObject *arr){
 	return out;
 }
 
-// hashing string
+// === hashing string
 int32_t scopeHashString(ScopeString *str){
 	int32_t hash = 0;
 	for(int i = 0;i < str->length;i++){
@@ -131,8 +131,50 @@ int32_t scopeHashString(ScopeString *str){
 	}
 	return hash;
 }
+int32_t scopeHashString__(ScopeString *str){
+	int64_t hash = 0;
+	int32_t ln = str->length;
+	if((ln & 3) == 3){
+		hash += str->string[ln - 3];
+		hash ^= (hash << 6) + (hash >> 7);
+	}
+	if((ln & 3) == 2){
+		hash += str->string[ln - 2];
+		hash ^= (hash << 6) + (hash >> 7);
+	}
+	if((ln & 3) == 1){
+		hash += str->string[ln - 1];
+		hash ^= (hash << 6) + (hash >> 7);
+	}
+	ln = ln >> 2;
+	int32_t *pp = (int32_t*)str->string;
+	for(int i = 0;i < ln;i++){
+		hash += pp[i];
+		hash ^= hash >> 11;
+		hash ^= hash << 31;
+		hash += hash >> 17;
+	}
+	return (int32_t)hash;
+}
+int scopeEqualString_(ScopeString *s1,ScopeString *s2,int32_t h2){
+	if(s1->length != s2->length)
+		return 0;
+	int32_t h1;
+	h1 = scopeHashString__(s1);
+	if(h1 != h2)return 0;
+	int32_t i;
+	for(i = 0;i < s1->length;i++){
+		if(s1->string[i] != s2->string[i])
+			return 0;
+	}
+	return 1;
+}
+int scopeEqualString(ScopeString *s1,ScopeString *s2){
+	int32_t h2 = scopeHashString__(s2);
+	return scopeEqualString_(s1,s2,h2);
+}
 
-// adding stuff into this
+// === adding stuff into this
 int32_t scopeInsertObject(
 		ScopeObject *scope,
 		ScopeValue typ,
@@ -140,6 +182,7 @@ int32_t scopeInsertObject(
 		ScopeString *str
 ){
 	uint32_t hash = scopeHashString(str);
+	uint32_t hash2 = scopeHashString__(str);
 	ScopeObject *current = scope;
 
 	// step through the obect
@@ -151,6 +194,23 @@ int32_t scopeInsertObject(
 	if(current->lowerBound >= hash){
 		current = current->prev;
 	}
+	// test for if it is available!
+	ScopeObject *tst = current;
+	while(tst->lowerBound >= hash){
+		if(tst == NULL)break;
+		for(int32_t i = 0;i < SCOPE_CAPACITY;i++){
+			if(!scopeEqualString_(tst->content[i].name,str,hash2))
+				continue;
+			// do the insert;
+			scopeDown(tst->content[i].value);
+			tst->content[i].value = value;
+			tst->content[i].typ = typ;
+			scopeUp(value);
+			return 0;
+		}
+		tst = tst->next;
+	}
+	// insert if needed
 	if(current->length + 1 >= SCOPE_CAPACITY){
 		ScopeObject *create = scopeMakeObject();
 		create->prev = current;
@@ -189,6 +249,7 @@ int32_t scopeInsertObject(
 	current->content[idx].typ = typ;
 	current->content[idx].name = str;
 	current->content[idx].value = value;
+	scopeUp(value);
 	return 0;
 }
 
@@ -215,7 +276,9 @@ int32_t scopeAppendArray(
 		current->length = 0;
 		current->next = NULL;
 	}
-	current->content[current->length++].value = value;
+	current->content[current->length].value = value;
+	current->length++;
+	scopeUp(value);
 	return 0;
 }
 int32_t scopeAppendAnyArray(
@@ -233,8 +296,10 @@ int32_t scopeAppendAnyArray(
 		current->length = 0;
 		current->next = NULL;
 	}
-	current->content[current->length++].value = value;
-	current->content[current->length++].typ = typ;
+	current->content[current->length].value = value;
+	current->content[current->length].typ = typ;
+	current->length++;
+	scopeUp(value);
 	return 0;
 }
 int32_t scopeInsertArray(
@@ -270,7 +335,7 @@ int32_t scopeInsertArray(
 	if(current->length >= SCOPE_CAPACITY){
 		ScopeArray *create = malloc(sizeof(ScopeArray));
 		create->next = current->next;
-		create->count = 1;
+		create->count = 0;
 		create->typ = current->typ;
 		current->next = create;
 		int32_t splice = 0;
@@ -291,6 +356,7 @@ int32_t scopeInsertArray(
 	}
 	current->content[position - counted].value = value;
 	current->length++;
+	scopeUp(value);
 	return 0;
 }
 int32_t scopeInsertAnyArray(
@@ -319,7 +385,7 @@ int32_t scopeInsertAnyArray(
 	if(current->length >= SCOPE_CAPACITY){
 		ScopeAnyArray *create = malloc(sizeof(ScopeAnyArray));
 		create->next = current->next;
-		create->count = 1;
+		create->count = 0;
 		current->next = create;
 		int32_t splice = 0;
 		for(int32_t idx = current->length / 2;idx < current->length;idx++){
@@ -340,8 +406,107 @@ int32_t scopeInsertAnyArray(
 	current->content[position - counted].value = value;
 	current->content[position - counted].typ = typ;
 	current->length++;
+	scopeUp(value);
 	return 0;
 }
 
-// 
+// === override stuff in arrays
+int32_t scopeReplaceArray(
+		ScopeArray *scope,
+		ScopeValue typ,
+		void *value,
+		int32_t position
+){
+	ScopeArray *current = scope;
+	int32_t counted = 0;
+	// if there is anything (here even potentially)
+	// regect if it doesn't match the type!
+	if(current->length > 0 && current->next != NULL && current->typ != typ)
+		// yield error for not fitting in!
+		return 1;
+	// used 4 when this is empty!
+	current->typ = typ;
+	while(current->next != NULL){
+		counted += current->length;
+		if(counted > position)
+			break;
+		if(counted == position){
+			// edge case?
+			if(current->next->length < SCOPE_CAPACITY){
+				current = current->next;
+				counted += current->length;
+			}
+			break;
+		}
+		current = current->next;
+	}
+	counted -= current->length;
+	if(position - counted >= current->length){
+		//scopeDown(current->content[position - counted].value);
+		current->content[current->length].value = value;
+		current->length++;
+	}
+	else{
+		scopeDown(current->content[position - counted].value);
+		current->content[position - counted].value = value;
+	}
+	scopeUp(value);
+	return 0;
+}
+int32_t scopeReplaceAnyArray(
+		ScopeAnyArray *scope,
+		ScopeValue typ,
+		void *value,
+		int32_t position
+){
+	ScopeAnyArray *current = scope;
+	int32_t counted = 0;
+	while(current->next != NULL){
+		counted += current->length;
+		if(counted > position)
+			break;
+		if(counted == position){
+			// edge case?
+			if(current->next->length < SCOPE_CAPACITY){
+				current = current->next;
+				counted += current->length;
+			}
+			break;
+		}
+		current = current->next;
+	}
+	counted -= current->length;
+	if(position - counted >= current->length){
+		//scopeDown(current->content[position - counted].value);
+		current->content[current->length].value = value;
+		current->content[current->length].typ = typ;
+		current->length++;
+	}
+	else{
+		scopeDown(current->content[position - counted].value);
+		current->content[position - counted].value = value;
+		current->content[position - counted].typ = typ;
+	}
+	scopeUp(value);
+	return 0;
+}
+
+// === scope counting stuff!
+void scopeUp(void *value){
+	int32_t* vpt = value;
+	(*vpt)++;
+}
+void scopeTst(void *value){
+	int32_t* vpt = value;
+	if(*vpt < 0 && *vpt >= -10){
+		if(((size_t)value & 0xf) == 0)
+			free(value);
+	}
+}
+void scopeDown(void *value){
+	int32_t* vpt = value;
+	(*vpt)--;
+	scopeTst(value);
+}
+// hho
 
