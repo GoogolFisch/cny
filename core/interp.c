@@ -9,7 +9,9 @@ int32_t interpIsSameToken(uint8_t first,uint8_t last,int32_t state){
 	// ["]([^"\]|(\\)*(\"))?+["]
 	if(first == '"'){
 		state |= 4;
-		if(last == '\\') state ^= 2;
+		if(last == '\n' && (state & 2) == 0)
+			state &= ~6;
+		else if(last == '\\') state ^= 2;
 		else state &= ~2;
 		if(last == '"' && (state & 2) == 0) state &= ~4;
 	}
@@ -89,10 +91,23 @@ UseString *interpGetString(UtilSharedStruct2 string,int32_t lower,int32_t high){
 				continue;
 			}
 		}
+		// check if escaped
+		if((state & 1) == 0)
+			outp->string[outp->length++] =
+				((uint8_t*)string.vptr)[idx + lower];
+		else{
+			char ch = ((uint8_t*)string.vptr)[idx + lower];
+			if(ch >= '0' && ch <= '9')
+				outp->string[outp->length++] = ch & 0x1f;
+			else if(ch >= 'A' && ch <= 'Z')
+				outp->string[outp->length++] = ch & 0x1f;
+			else if(ch >= 'a' && ch <= 'z')
+				outp->string[outp->length++] = (ch & 0x1f) + 27;
+			else
+				outp->string[outp->length++] =
+					((uint8_t*)string.vptr)[idx + lower];
+		}
 		state &= ~1;
-		// ???
-		outp->string[outp->length++] =
-			((uint8_t*)string.vptr)[idx + lower];
 	}
 	return outp;
 }
@@ -195,6 +210,42 @@ Interp_Token_List_Next:
 	return outStruct;
 }
 
+void interpFilter_CombineString(UtilSharedStruct2 tokenList,int32_t current){
+	int32_t idx;
+	InterpTree *tree;
+	InterpTree *base = &((InterpTree*)tokenList.vptr)[current];
+	UseString *str;
+	str = (UseString*)(base->data);
+	int32_t counted = str->length;
+	for(idx = current + 1;idx < tokenList.vint;idx++){
+		tree = &((InterpTree*)tokenList.vptr)[idx];
+		if(tree->tokenType != INTE_STRING)
+			break;
+		str = (UseString*)(tree->data);
+		counted += str->length;
+		tree->flags |= 128;
+	}
+	UseString *strInto = malloc(sizeof(UseString));
+	strInto->length = counted;
+	strInto->allocated = counted;
+	strInto->string = malloc(sizeof(char) * counted);
+	counted = 0;
+	for(idx = current;idx < tokenList.vint;idx++){
+		tree = &((InterpTree*)tokenList.vptr)[idx];
+		if(tree->tokenType != INTE_STRING)
+			break;
+		str = (UseString*)(tree->data);
+		for(uint32_t cp = 0;cp < str->length;cp++){
+			strInto->string[counted + cp] = str->string[cp];
+		}
+		counted += str->length;
+	}
+	str = (UseString*)(base->data);
+	free(str->string);
+	free(str);
+	base->data = strInto;
+}
+
 void interpFilterKeyWords(UtilSharedStruct2 tokenList){
 	int32_t idx;
 	InterpTree *tree;
@@ -202,8 +253,14 @@ void interpFilterKeyWords(UtilSharedStruct2 tokenList){
 	uint32_t akkuStr;
 	for(idx = 0;idx < tokenList.vint;idx++){
 		tree = &((InterpTree*)tokenList.vptr)[idx];
-		if(tree->tokenType != INTE_KEY_WORD)
+		if((tree->flags & 128) > 0)
+			// should ignore!
 			continue;
+		if(tree->tokenType == INTE_STRING)
+			interpFilter_CombineString(tokenList,idx);
+		if(tree->tokenType != INTE_KEY_WORD){
+			continue;
+		}
 		str = tree->data;
 		if(str->length > 4)
 			continue;
@@ -677,7 +734,8 @@ int32_t interpParseOperation_DEF(
 		}
 	}
 	tree->argumentLength = argCount;
-	void *lengthing = malloc(sizeof(void*));
+	void **lengthing = malloc(sizeof(void*) * argCount);
+	argCount = 0;
 	// adding params into array
 	for(idx = current + 1;idx < upper;idx++){
 		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
@@ -691,8 +749,10 @@ int32_t interpParseOperation_DEF(
 			if(depth > 1){}
 			depth++;
 		}
-		if(depth == 1 && ltree->tokenType == INTE_KEY_WORD)
+		if(depth == 1 && ltree->tokenType == INTE_KEY_WORD){
+			lengthing[argCount] = ltree;
 			argCount++;
+		}
 		if(ltree->tokenType == INTE_BRACK_CLOSE){
 			depth--;
 			if(depth != 0)
@@ -704,10 +764,7 @@ int32_t interpParseOperation_DEF(
 	}
 	// after 
 	tree->data = lengthing;
-	tempIdx1 = interpGetPosibleToken(tokenList,lower,upper,current + 1,1);
-	ltree = &((InterpTree*)tokenList.vptr)[tempIdx1];
-	ltree->flags |= 128;
-	tree->data = ltree;
+	//
 	tempIdx2 = interpGetPosibleToken(tokenList,lower,upper,idx + 1,1);
 	// rtree 4 when the condition holds
 	for(idx = tempIdx2;idx < upper;idx++){

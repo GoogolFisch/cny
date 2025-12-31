@@ -21,6 +21,7 @@ typedef struct UseDictList{
 } UseDictList;
 
 
+/* /
 UseString *useMakeString(int32_t length){
 	UseString *out = (UseString*)malloc(sizeof(UseString));
 	out->length = length;
@@ -28,6 +29,7 @@ UseString *useMakeString(int32_t length){
 	out->string = malloc(sizeof(char) * out->allocated);
 	return out;
 }
+// */
 
 #undef USE_DICT_LIST_COUNT
 // 64

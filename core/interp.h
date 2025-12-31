@@ -51,12 +51,12 @@ typedef enum InterpToken{
 
 typedef struct InterpTree{
 	InterpToken tokenType;
-	void *data;
 	int32_t argumentLength;
 	int32_t flags;
-	struct InterpTree *ltree;
-	struct InterpTree *rtree;
 	int32_t index;
+	struct InterpTree *ltree;
+	void *data;
+	struct InterpTree *rtree;
 }InterpTree;
 
 
