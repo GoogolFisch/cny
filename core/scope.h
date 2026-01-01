@@ -5,6 +5,7 @@
 #include<stdint.h>
 #include<stdlib.h>
 #include<stdio.h>
+#include"../util.h"
 
 typedef enum ScopeValue{
 	SCOPE_NONE,
@@ -126,6 +127,25 @@ int32_t scopeReplaceAnyArray(
 		ScopeAnyArray *scope,
 		ScopeValue typ,
 		void *value,
+		int32_t position
+);
+// === override stuff in arrays
+UtilSharedStruct2 scopeRemoveObject(
+		ScopeObject *scope,
+		ScopeString *str
+);
+UtilSharedStruct2 scopePopArray(
+		ScopeArray *scope
+);
+UtilSharedStruct2 scopePopAnyArray(
+		ScopeAnyArray *scope
+);
+UtilSharedStruct2 scopeRemoveArray(
+		ScopeArray *scope,
+		int32_t position
+);
+UtilSharedStruct2 scopeRemoveAnyArray(
+		ScopeAnyArray *scope,
 		int32_t position
 );
 // === ...

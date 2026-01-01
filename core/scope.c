@@ -490,6 +490,77 @@ int32_t scopeReplaceAnyArray(
 	scopeUp(value);
 	return 0;
 }
+// === override stuff in arrays
+UtilSharedStruct2 scopeRemoveObject(
+		ScopeObject *scope,
+		ScopeString *str
+){
+	uint32_t hash = scopeHashString(str);
+	uint32_t hash2 = scopeHashString__(str);
+	ScopeObject *current = scope;
+	UtilSharedStruct2 out = {};
+	out.vptr = NULL;
+	out.vint = SCOPE_NONE;
+	// step through the obect
+	while(current->lowerBound > hash){
+		if(current->next == NULL)
+			break;
+		current = current->next;
+	}
+	if(current->lowerBound >= hash){
+		current = current->prev;
+	}
+	// test for if it is available!
+	ScopeObject *tst = current;
+	while(tst->lowerBound >= hash){
+		if(tst == NULL)break;
+		for(int32_t i = 0;i < SCOPE_CAPACITY;i++){
+			if(!scopeEqualString_(tst->content[i].name,str,hash2))
+				continue;
+			// do the insert;
+			out.vptr = tst->content[i].value;
+			out.vint = tst->content[i].typ;
+			scopeDown(tst->content[i].value);
+			return out;
+		}
+		tst = tst->next;
+	}
+	return out;
+}
+UtilSharedStruct2 scopePopArray(
+		ScopeArray *scope
+){
+	UtilSharedStruct2 out = {};
+	out.vptr = NULL;
+	out.vint = SCOPE_NONE;
+	return out;
+}
+UtilSharedStruct2 scopePopAnyArray(
+		ScopeAnyArray *scope
+){
+	UtilSharedStruct2 out = {};
+	out.vptr = NULL;
+	out.vint = SCOPE_NONE;
+	return out;
+}
+UtilSharedStruct2 scopeRemoveArray(
+		ScopeArray *scope,
+		int32_t position
+){
+	UtilSharedStruct2 out = {};
+	out.vptr = NULL;
+	out.vint = SCOPE_NONE;
+	return out;
+}
+UtilSharedStruct2 scopeRemoveAnyArray(
+		ScopeAnyArray *scope,
+		int32_t position
+){
+	UtilSharedStruct2 out = {};
+	out.vptr = NULL;
+	out.vint = SCOPE_NONE;
+	return out;
+}
 
 // === scope counting stuff!
 void scopeUp(void *value){
