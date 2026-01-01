@@ -6,7 +6,7 @@
 #include<stdlib.h>
 #include<stdint.h>
 #include<stdbool.h>
-#include"scope.h"
+// #include"scope.h"
 #include"../util.h"
 #include"../structures.c"
 
@@ -69,7 +69,7 @@ int32_t interpParseStatement(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 // this could parse stuff with idk
 int32_t interpParseOperation(UtilSharedStruct2 tokenList,int32_t lower,int32_t upper);
 // only top level
-int32_t interpParseFunctions(UtilSharedStruct2 tokenList,ScopeObject *globalData);
+//int32_t interpParseFunctions(UtilSharedStruct2 tokenList,ScopeObject *globalData);
 
 
 #endif

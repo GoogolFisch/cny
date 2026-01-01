@@ -176,6 +176,10 @@ UtilSharedStruct2 interpMakeTokenList(UtilSharedStruct2 string){
 		curTokenType = interpGetTokenType(
 				((uint8_t*)string.vptr)[lowerIndex],
 				currentState);
+		if(curTokenType == INTE_NONE){
+			// skip if it should
+			goto Interp_Token_List_Next;
+		}
 		treeList[listLength].tokenType = curTokenType;
 		treeList[listLength].index = 0;
 		treeList[listLength].argumentLength = 0;
@@ -195,6 +199,7 @@ UtilSharedStruct2 interpMakeTokenList(UtilSharedStruct2 string){
 			treeList[listLength].data = interpGetString(
 					string, lowerIndex, highIndex);
 		}
+		listLength++;
 Interp_Token_List_Next:
 		//after stuff
 		highIndex--;
@@ -216,6 +221,7 @@ void interpFilter_CombineString(UtilSharedStruct2 tokenList,int32_t current){
 	InterpTree *base = &((InterpTree*)tokenList.vptr)[current];
 	UseString *str;
 	str = (UseString*)(base->data);
+	// counting total-length
 	int32_t counted = str->length;
 	for(idx = current + 1;idx < tokenList.vint;idx++){
 		tree = &((InterpTree*)tokenList.vptr)[idx];
@@ -225,11 +231,13 @@ void interpFilter_CombineString(UtilSharedStruct2 tokenList,int32_t current){
 		counted += str->length;
 		tree->flags |= 128;
 	}
+	// allocate this thing
 	UseString *strInto = malloc(sizeof(UseString));
 	strInto->length = counted;
 	strInto->allocated = counted;
 	strInto->string = malloc(sizeof(char) * counted);
 	counted = 0;
+	// insert chars
 	for(idx = current;idx < tokenList.vint;idx++){
 		tree = &((InterpTree*)tokenList.vptr)[idx];
 		if(tree->tokenType != INTE_STRING)
@@ -245,49 +253,51 @@ void interpFilter_CombineString(UtilSharedStruct2 tokenList,int32_t current){
 	free(str);
 	base->data = strInto;
 }
+InterpToken interpFilter_ReplaceKeyWord(UseString *str){
+	if(str->length > 4)
+		return INTE_KEY_WORD;
+	uint32_t akkuStr = 0;
+	for(uint32_t l = 0;l < 4 && l < str->length;l++){
+		akkuStr = akkuStr * 256 + str->string[l];
+	}
+	if(akkuStr == 0x6966) // if
+		return INTE_IF;
+	else if(akkuStr == 0x656C7365) // else
+		return INTE_ELSE;
+	else if(akkuStr == 0x656C6966) // elif
+		return INTE_ELSE_IF;
+	else if(akkuStr == 0x646566) // def
+		return INTE_DEF;
+	else if(akkuStr == 0x666f72) // for
+		return INTE_FOR;
+	else if(akkuStr == 0x6c6f6f70) // loop
+		return INTE_LOOP;
+	else if(akkuStr == 0x6e696c) // nil
+		return INTE_LOOP;
+	else if(akkuStr == 0x726574) // ret
+		return INTE_LOOP;
+	return INTE_KEY_WORD;
+}
 
 void interpFilterKeyWords(UtilSharedStruct2 tokenList){
 	int32_t idx;
 	InterpTree *tree;
 	UseString *str;
-	uint32_t akkuStr;
 	for(idx = 0;idx < tokenList.vint;idx++){
 		tree = &((InterpTree*)tokenList.vptr)[idx];
 		if((tree->flags & 128) > 0)
 			// should ignore!
 			continue;
-		if(tree->tokenType == INTE_STRING)
+		if(tree->tokenType == INTE_STRING){
 			interpFilter_CombineString(tokenList,idx);
-		if(tree->tokenType != INTE_KEY_WORD){
-			continue;
-		}
-		str = tree->data;
-		if(str->length > 4)
-			continue;
-		akkuStr = 0;
-		for(uint32_t l = 0;l < 4 && l < str->length;l++){
-			akkuStr = akkuStr * 256 + str->string[l];
-		}
-		if(akkuStr == 0x6966) // if
-			tree->tokenType = INTE_IF;
-		else if(akkuStr == 0x656C7365) // else
-			tree->tokenType = INTE_ELSE;
-		else if(akkuStr == 0x656C6966) // elif
-			tree->tokenType = INTE_ELSE_IF;
-		else if(akkuStr == 0x646566) // def
-			tree->tokenType = INTE_DEF;
-		else if(akkuStr == 0x666f72) // for
-			tree->tokenType = INTE_FOR;
-		else if(akkuStr == 0x6c6f6f70) // loop
-			tree->tokenType = INTE_LOOP;
-		else if(akkuStr == 0x6e696c) // nil
-			tree->tokenType = INTE_LOOP;
-		else if(akkuStr == 0x726574) // ret
-			tree->tokenType = INTE_LOOP;
-		if(tree->tokenType != INTE_KEY_WORD){
-			tree->data = NULL;
-			free(str->string);
-			free(str);
+		}else if(tree->tokenType == INTE_KEY_WORD){
+			str = tree->data;
+			tree->tokenType = interpFilter_ReplaceKeyWord(str);
+			if(tree->tokenType != INTE_KEY_WORD){
+				tree->data = NULL;
+				free(str->string);
+				free(str);
+			}
 		}
 	}
 }
@@ -699,18 +709,32 @@ int32_t interpParseOperation_ASSIGN(
 int32_t interpParseOperation_DEF(
 		UtilSharedStruct2 tokenList,
 		int32_t current,int32_t lower,int32_t upper){
-	// use ref: 375 or
+	// 4 ref:
 	// tree->tokenType == INTE_BRACK_CLOSE ||
+	InterpTree *defTree, *nameTree;
 	InterpTree *tree, *ltree, *rtree;
 	tree = &((InterpTree*)tokenList.vptr)[current];
+	int32_t idx;
+	for(idx = current + 1;idx < upper;idx++){
+		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
+		defTree = &((InterpTree*)tokenList.vptr)[idx];
+		if(defTree->tokenType == INTE_DEF)
+			break;
+	}
+	idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
+	nameTree = &((InterpTree*)tokenList.vptr)[idx];
+	if(nameTree->tokenType != INTE_KEY_WORD){
+		// TODO assert
+	}
+	defTree->data = nameTree;
 	// the ret keyword
 	int32_t tempIdx0,tempIdx1,tempIdx2,tempIdx3;
+	int32_t startOfArgs = idx + 1;
 	tempIdx0 = current;
 	int32_t depth = 0;
-	int32_t idx;
 	int32_t argCount = 0;
 	// counting arguments?
-	for(idx = current + 1;idx < upper;idx++){
+	for(idx = startOfArgs;idx < upper;idx++){
 		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
 		ltree = &((InterpTree*)tokenList.vptr)[idx];
 		if(ltree->tokenType == INTE_BRACK_OPEN){
@@ -733,11 +757,11 @@ int32_t interpParseOperation_DEF(
 			break;
 		}
 	}
-	tree->argumentLength = argCount;
+	nameTree->argumentLength = argCount;
 	void **lengthing = malloc(sizeof(void*) * argCount);
 	argCount = 0;
 	// adding params into array
-	for(idx = current + 1;idx < upper;idx++){
+	for(idx = startOfArgs;idx < upper;idx++){
 		idx = interpGetPosibleToken(tokenList,lower,upper,idx,1);
 		ltree = &((InterpTree*)tokenList.vptr)[idx];
 		if(ltree->tokenType == INTE_BRACK_OPEN){
@@ -753,6 +777,7 @@ int32_t interpParseOperation_DEF(
 			lengthing[argCount] = ltree;
 			argCount++;
 		}
+		ltree->flags |= 128; // remove these token?
 		if(ltree->tokenType == INTE_BRACK_CLOSE){
 			depth--;
 			if(depth != 0)
@@ -763,7 +788,7 @@ int32_t interpParseOperation_DEF(
 		}
 	}
 	// after 
-	tree->data = lengthing;
+	nameTree->data = lengthing;
 	//
 	tempIdx2 = interpGetPosibleToken(tokenList,lower,upper,idx + 1,1);
 	// rtree 4 when the condition holds
@@ -857,6 +882,7 @@ int32_t interpParseOperation(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 			continue;
 		}
 		if(tree->tokenType == INTE_DEF){
+			// at the def token?
 			idx = interpParseOperation_DEF(tokenList,tempIdxNext,lower,upper);
 			tempIdxNext = idx;
 			idx--;
@@ -910,7 +936,7 @@ int32_t interpParseOperation(UtilSharedStruct2 tokenList,int32_t lower,int32_t u
 	return idx;
 }
 // could also get a scope?
-int32_t interpParseFunctions(UtilSharedStruct2 tokenList,ScopeObject *globalData){
+/* int32_t interpParseFunctions(UtilSharedStruct2 tokenList,ScopeObject *globalData){
 	int32_t idx;
 	int32_t tempIdx0,tempIdx1,tempIdx2;
 	InterpTree *tree;
@@ -962,5 +988,5 @@ int32_t interpParseFunctions(UtilSharedStruct2 tokenList,ScopeObject *globalData
 		}
 	}
 	return 0;
-}
+} // */ 
 
